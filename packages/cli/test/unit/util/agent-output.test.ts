@@ -5,6 +5,7 @@ import {
   outputAgentError,
   buildCommandWithScope,
   buildCommandWithYes,
+  buildCommandWithGlobalFlags,
   enrichActionRequiredWithInvokingCommand,
   type ActionRequiredPayload,
 } from '../../../src/util/agent-output';
@@ -259,6 +260,18 @@ describe('buildCommandWithScope', () => {
     const argv = ['/node', '/vc.js', 'deploy', '-T', 'old-team'];
     expect(buildCommandWithScope(argv, 'new-team')).toBe(
       'vercel deploy --scope new-team'
+    );
+  });
+});
+
+describe('buildCommandWithGlobalFlags', () => {
+  it('uses VERCEL_NON_INTERACTIVE env prefix instead of preserving the flag', () => {
+    const command = buildCommandWithGlobalFlags(
+      ['/node', '/vc.js', 'env', 'add', '--cwd', '/tmp', '--non-interactive'],
+      'env add SOME_KEY'
+    );
+    expect(command).toBe(
+      'VERCEL_NON_INTERACTIVE=1 vercel env add SOME_KEY --cwd /tmp'
     );
   });
 });

@@ -78,6 +78,7 @@ import { checkGuidanceStatus } from './util/guidance/check-status';
 import { determineAgent } from '@vercel/detect-agent';
 import { getLinkFromDir, getVercelDirectory } from './util/projects/link';
 import { getPlatformEnv } from '@vercel/build-utils';
+import { resolveNonInteractive } from './util/resolve-non-interactive';
 
 const VERCEL_DIR = getGlobalPathConfig();
 const VERCEL_CONFIG_PATH = configFiles.getConfigFilePath();
@@ -354,7 +355,8 @@ const main = async () => {
   }
 
   // Shared API `Client` instance for all sub-commands to utilize.
-  // Non-interactive when: --non-interactive is set, or agent is detected (and no TTY). Explicit --non-interactive=false overrides agent detection.
+  // Non-interactive when VERCEL_NON_INTERACTIVE is set to a supported boolean-like value.
+  // Otherwise, fallback to legacy --non-interactive + agent/non-TTY behavior.
   const stdinIsTTY = process.stdin?.isTTY === true;
   const nonInteractiveFlag = parsedArgs.flags['--non-interactive'] === true;
   const argv = process.argv;
@@ -362,12 +364,17 @@ const main = async () => {
     argv.includes('--non-interactive=false') ||
     (argv.includes('--non-interactive') &&
       argv[argv.indexOf('--non-interactive') + 1] === 'false');
-  const nonInteractive = explicitNonInteractiveFalse
-    ? false
-    : nonInteractiveFlag || (isAgent && !stdinIsTTY);
+  const nonInteractiveResolved = resolveNonInteractive({
+    envValue: process.env.VERCEL_NON_INTERACTIVE,
+    cliFlag: nonInteractiveFlag,
+    explicitCliFalse: explicitNonInteractiveFalse,
+    isAgent,
+    stdinIsTTY,
+  });
+  const nonInteractive = nonInteractiveResolved.nonInteractive;
 
   output.debug(
-    `Agent/TTY/nonInteractive: isAgent=${isAgent} agentName=${detectedAgent?.name ?? 'none'} stdin.isTTY=${String(process.stdin?.isTTY)} --non-interactive=${nonInteractiveFlag} explicitFalse=${explicitNonInteractiveFalse} => nonInteractive=${nonInteractive}`
+    `Agent/TTY/nonInteractive: isAgent=${isAgent} agentName=${detectedAgent?.name ?? 'none'} stdin.isTTY=${String(process.stdin?.isTTY)} --non-interactive=${nonInteractiveFlag} explicitFalse=${explicitNonInteractiveFalse} VERCEL_NON_INTERACTIVE=${process.env.VERCEL_NON_INTERACTIVE ?? 'unset'} parsedEnv=${String(nonInteractiveResolved.parsedEnv)} => nonInteractive=${nonInteractive}`
   );
 
   // Only load proxy-agent if proxy env vars are configured (saves ~60ms startup)
