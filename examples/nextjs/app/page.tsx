@@ -1,65 +1,127 @@
-import Image from "next/image";
 
-export default function Home() {
+
+"use client"; // Needed for Next.js 13+ page.tsx
+
+import { useState } from "react";
+
+export default function DoorGeneratorPage() {
+  const [apiKey, setApiKey] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [mask, setMask] = useState<File | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const [timeOfDay, setTimeOfDay] = useState("golden hour");
+  const [weather, setWeather] = useState("sunny");
+  const [houseStyle, setHouseStyle] = useState("modern");
+  const [angle, setAngle] = useState("front view");
+
+  const handleGenerate = async () => {
+    if (!apiKey || !image || !mask) {
+      alert("Add API key, image, and mask image");
+      return;
+    }
+
+    setLoading(true);
+
+    const toBase64 = (file: File) =>
+      new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result!.toString().split(",")[1]);
+      });
+
+    const base64Image = await toBase64(image);
+    const base64Mask = await toBase64(mask);
+
+    const prompt = `A realistic ${houseStyle} house exterior, ${angle}, ${timeOfDay} lighting, ${weather} weather. Keep the door EXACTLY as it is, do not change the door, generate surroundings only, ultra realistic real estate photography`;
+
+    try {
+      const res = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-image-1",
+          prompt,
+          image: base64Image,
+          mask: base64Mask,
+          size: "1024x1024",
+        }),
+      });
+
+      const data = await res.json();
+      setResult(`data:image/png;base64,${data.data[0].b64_json}`);
+    } catch (err) {
+      console.error(err);
+      alert("Error generating image");
+    }
+
+    setLoading(false);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
+      <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-xl">
+        <h1 className="text-2xl font-bold mb-4">Door Image Generator</h1>
+
+        <input
+          type="password"
+          placeholder="OpenAI API Key"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          className="border p-2 w-full mb-4 rounded"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <select value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} className="border p-2 rounded">
+            <option>golden hour</option>
+            <option>daytime</option>
+            <option>night</option>
+          </select>
+
+          <select value={weather} onChange={(e) => setWeather(e.target.value)} className="border p-2 rounded">
+            <option>sunny</option>
+            <option>rainy</option>
+            <option>snowy</option>
+          </select>
+
+          <select value={houseStyle} onChange={(e) => setHouseStyle(e.target.value)} className="border p-2 rounded">
+            <option>modern</option>
+            <option>victorian</option>
+            <option>suburban</option>
+          </select>
+
+          <select value={angle} onChange={(e) => setAngle(e.target.value)} className="border p-2 rounded">
+            <option>front view</option>
+            <option>angled view</option>
+            <option>close up</option>
+          </select>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="mb-4">
+          <label className="block mb-1">Door Image</label>
+          <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files![0])} />
         </div>
-      </main>
+
+        <div className="mb-4">
+          <label className="block mb-1">Mask Image</label>
+          <input type="file" accept="image/*" onChange={(e) => setMask(e.target.files![0])} />
+        </div>
+
+        <button onClick={handleGenerate} className="w-full bg-black text-white py-2 rounded">
+          {loading ? "Generating..." : "Generate Image"}
+        </button>
+
+        {result && (
+          <div className="mt-6">
+            <h2 className="font-semibold">Result</h2>
+            <img src={result} alt="Generated" className="mt-2 rounded" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
